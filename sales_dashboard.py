@@ -83,7 +83,7 @@ def get_engine():
     port     = 3306
     database = "db31521"
     username = "db31521"
-    password = quote_plus("Jmrms@6277")   # ← change after rotating credentials
+    password = quote_plus(st.secrets["DB_PASSWORD"])  # ← change after rotating credentials
     return create_engine(f"mysql+pymysql://{username}:{password}@{host}:{port}/{database}")
 
 
