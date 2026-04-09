@@ -7,7 +7,7 @@ from urllib.parse import quote_plus
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Sales Analytics Dashboard",
+    page_title="Sales Dashboard",
     page_icon="💊",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -219,7 +219,7 @@ def fmt(n):
 
 
 # ── Dashboard Header ──────────────────────────────────────────────────────────
-st.markdown("## 📊 Sales Analytics Dashboard")
+st.markdown("## 📊 Sales Analytics")
 
 # ── Date Period Banner ────────────────────────────────────────────────────────
 if from_date and to_date:
