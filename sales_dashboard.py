@@ -133,7 +133,7 @@ with st.sidebar:
     st.markdown("## 💊 Sales Analytics")
     st.markdown("---")
 
-    table_name = st.text_input("Table Name", value="your_table_name",
+    table_name = st.text_input("Table Name", value="",
                                help="Enter the exact MySQL table name")
 
     if st.button("🔄 Load / Refresh Data", use_container_width=True):
