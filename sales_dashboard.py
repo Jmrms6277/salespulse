@@ -19,7 +19,6 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono&display=swap');
 
 html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
-
 .main { background: #0f1117; }
 
 /* KPI cards */
@@ -55,6 +54,33 @@ html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
     margin-top: 4px;
 }
 
+/* Date banner */
+.date-banner {
+    background: linear-gradient(135deg, #1a1f35 0%, #1e2540 100%);
+    border: 1px solid #2e3250;
+    border-left: 4px solid #6366f1;
+    border-radius: 12px;
+    padding: 14px 24px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 40px;
+}
+.date-banner-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #6b7280;
+    margin-bottom: 4px;
+}
+.date-banner-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: #a5b4fc;
+    font-family: 'DM Mono', monospace;
+}
+
 /* Section headers */
 .section-header {
     font-size: 13px;
@@ -83,7 +109,7 @@ def get_engine():
     port     = 3306
     database = "db31521"
     username = "db31521"
-    password = quote_plus(st.secrets["DB_PASSWORD"])  # ← change after rotating credentials
+    password = quote_plus(st.secrets["DB_PASSWORD"])
     return create_engine(f"mysql+pymysql://{username}:{password}@{host}:{port}/{database}")
 
 
@@ -128,18 +154,40 @@ except Exception as e:
 
 # ── Sidebar Filters ─────────────────────────────────────────────────────────────
 with st.sidebar:
+
+    # ── Date Range ────────────────────────────────────────────────────────────
+    if 'Date' in df.columns:
+        min_date = df['Date'].min().date()
+        max_date = df['Date'].max().date()
+        from_date = st.date_input("📅 From Date", value=min_date,
+                                  min_value=min_date, max_value=max_date)
+        to_date   = st.date_input("📅 To Date",   value=max_date,
+                                  min_value=min_date, max_value=max_date)
+    else:
+        from_date = to_date = None
+
+    # ── Region ───────────────────────────────────────────────────────────────
     if 'Region' in df.columns:
         regions = st.multiselect("Region", df['Region'].dropna().unique().tolist(),
                                  default=df['Region'].dropna().unique().tolist())
     else:
         regions = []
 
+    # ── Unit Name ─────────────────────────────────────────────────────────────
+    if 'Unit' in df.columns:
+        units = st.multiselect("Unit Name", sorted(df['Unit'].dropna().unique().tolist()),
+                               default=sorted(df['Unit'].dropna().unique().tolist()))
+    else:
+        units = []
+
+    # ── Customer Type ─────────────────────────────────────────────────────────
     if 'Customer_Type' in df.columns:
         cx_types = st.multiselect("Customer Type", df['Customer_Type'].dropna().unique().tolist(),
                                   default=df['Customer_Type'].dropna().unique().tolist())
     else:
         cx_types = []
 
+    # ── Month ─────────────────────────────────────────────────────────────────
     if 'Month' in df.columns:
         months = st.multiselect("Month", sorted(df['Month'].dropna().unique().tolist()),
                                 default=sorted(df['Month'].dropna().unique().tolist()))
@@ -149,8 +197,13 @@ with st.sidebar:
 
 # ── Apply Filters ───────────────────────────────────────────────────────────────
 fdf = df.copy()
+
+if from_date and to_date and 'Date' in fdf.columns:
+    fdf = fdf[(fdf['Date'].dt.date >= from_date) & (fdf['Date'].dt.date <= to_date)]
 if regions and 'Region' in fdf.columns:
     fdf = fdf[fdf['Region'].isin(regions)]
+if units and 'Unit' in fdf.columns:
+    fdf = fdf[fdf['Unit'].isin(units)]
 if cx_types and 'Customer_Type' in fdf.columns:
     fdf = fdf[fdf['Customer_Type'].isin(cx_types)]
 if months and 'Month' in fdf.columns:
@@ -159,16 +212,42 @@ if months and 'Month' in fdf.columns:
 
 # ── Helper ──────────────────────────────────────────────────────────────────────
 def fmt(n):
-    if n >= 1_000_000: return f"₹{n/1_000_000:.1f}M"
-    if n >= 1_000:     return f"₹{n/1_000:.1f}K"
+    if abs(n) >= 1_000_000: return f"₹{n/1_000_000:.1f}M"
+    if abs(n) >= 1_000_000:     return f"₹{n/1_000_000:.1f}M"
+    if abs(n) >= 1_000:         return f"₹{n/1_000:.1f}K"
     return f"₹{n:.0f}"
 
 
-# ── KPI Row ──────────────────────────────────────────────────────────────────────
+# ── Dashboard Header ──────────────────────────────────────────────────────────
 st.markdown("## 📊 Sales Analytics Dashboard")
-st.markdown(f"<p style='color:#6b7280;font-size:13px'>Showing {len(fdf):,} records after filters</p>",
-            unsafe_allow_html=True)
 
+# ── Date Period Banner ────────────────────────────────────────────────────────
+if from_date and to_date:
+    st.markdown(f"""
+    <div class="date-banner">
+        <div>
+            <div class="date-banner-label">📅 Reporting Period</div>
+            <div class="date-banner-value">
+                {from_date.strftime('%d %b %Y')} &nbsp;→&nbsp; {to_date.strftime('%d %b %Y')}
+            </div>
+        </div>
+        <div>
+            <div class="date-banner-label">📋 Total Records</div>
+            <div class="date-banner-value">{len(fdf):,}</div>
+        </div>
+        <div>
+            <div class="date-banner-label">🏢 Units Selected</div>
+            <div class="date-banner-value">{len(units) if units else 'All'}</div>
+        </div>
+        <div>
+            <div class="date-banner-label">🌍 Regions Selected</div>
+            <div class="date-banner-value">{len(regions) if regions else 'All'}</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# ── KPI Row ───────────────────────────────────────────────────────────────────
 total_sale     = fdf['Net_Sale'].sum()     if 'Net_Sale'     in fdf.columns else 0
 total_cost     = fdf['Net_Cost'].sum()     if 'Net_Cost'     in fdf.columns else 0
 total_discount = fdf['Net_Discount'].sum() if 'Net_Discount' in fdf.columns else 0
@@ -179,7 +258,7 @@ dis_pct        = (total_discount / total_sale * 100) if total_sale else 0
 
 k1, k2, k3, k4, k5, k6 = st.columns(6)
 for col, label, value, sub in [
-    (k1, "NET SALES",    fmt(total_sale),     f"{len(fdf):,} orders"),
+    (k1, "NET SALES",    fmt(total_sale),     ""),
     (k2, "NET COST",     fmt(total_cost),     ""),
     (k3, "DISCOUNT",     fmt(total_discount), f"{dis_pct:.2f}%"),
     (k4, "SCHEME",       fmt(total_scheme),   ""),
@@ -195,12 +274,12 @@ for col, label, value, sub in [
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ── Tabs ─────────────────────────────────────────────────────────────────────────
+# ── Tabs ──────────────────────────────────────────────────────────────────────
 tab1, tab2, tab3, tab4 = st.tabs(["🌍 Region & State", "📅 Trend", "🏢 Unit & ASM", "👥 Customer"])
 
 COLORS = px.colors.qualitative.Vivid
 
-# ── Tab 1: Region & State ────────────────────────────────────────────────────────
+# ── Tab 1: Region & State ─────────────────────────────────────────────────────
 with tab1:
     c1, c2 = st.columns(2)
 
@@ -231,12 +310,11 @@ with tab1:
                            title_font_size=14, yaxis={'categoryorder': 'total ascending'})
         st.plotly_chart(fig3, use_container_width=True)
 
-    # Region summary table
     if 'Region' in fdf.columns:
         st.markdown("<div class='section-header'>Region Summary Table</div>", unsafe_allow_html=True)
         rtbl = fdf.groupby('Region').agg(
             Sales=('Net_Sale','sum'), Discount=('Net_Discount','sum'),
-            Cost=('Net_Cost','sum'), Scheme=('Net_Scheme','sum'), Orders=('Net_Sale','count')
+            Cost=('Net_Cost','sum'), Scheme=('Net_Scheme','sum')
         ).reset_index()
         rtbl['Profit'] = rtbl['Sales'] - rtbl['Cost']
         rtbl['GP %']   = (rtbl['Profit'] / rtbl['Sales'] * 100).round(2)
@@ -246,7 +324,7 @@ with tab1:
         st.dataframe(rtbl, use_container_width=True, hide_index=True)
 
 
-# ── Tab 2: Trend ─────────────────────────────────────────────────────────────────
+# ── Tab 2: Trend ──────────────────────────────────────────────────────────────
 with tab2:
     if 'Month' in fdf.columns:
         mdf = fdf.groupby('Month', as_index=False).agg(
@@ -283,7 +361,7 @@ with tab2:
             st.plotly_chart(fig5, use_container_width=True)
 
 
-# ── Tab 3: Unit & ASM ────────────────────────────────────────────────────────────
+# ── Tab 3: Unit & ASM ─────────────────────────────────────────────────────────
 with tab3:
     c1, c2 = st.columns(2)
 
@@ -307,12 +385,11 @@ with tab3:
                                yaxis={'categoryorder':'total ascending'}, title_font_size=14)
             st.plotly_chart(fig7, use_container_width=True)
 
-    # Unit detailed table
     if 'Unit' in fdf.columns:
         st.markdown("<div class='section-header'>Unit Summary Table</div>", unsafe_allow_html=True)
         utbl = fdf.groupby('Unit').agg(
             Sales=('Net_Sale','sum'), Discount=('Net_Discount','sum'),
-            Cost=('Net_Cost','sum'), Orders=('Net_Sale','count')
+            Cost=('Net_Cost','sum')
         ).reset_index().sort_values('Sales', ascending=False)
         utbl['Profit'] = utbl['Sales'] - utbl['Cost']
         utbl['GP %']   = (utbl['Profit'] / utbl['Sales'] * 100).round(2)
@@ -322,7 +399,7 @@ with tab3:
         st.dataframe(utbl, use_container_width=True, hide_index=True)
 
 
-# ── Tab 4: Customer ──────────────────────────────────────────────────────────────
+# ── Tab 4: Customer ───────────────────────────────────────────────────────────
 with tab4:
     c1, c2 = st.columns(2)
 
@@ -344,13 +421,12 @@ with tab4:
                                plot_bgcolor='rgba(0,0,0,0)', title_font_size=14)
             st.plotly_chart(fig9, use_container_width=True)
 
-    # Top customers
     if 'Customer' in fdf.columns:
         st.markdown("<div class='section-header'>Top 20 Customers</div>", unsafe_allow_html=True)
         cust = fdf.groupby(['Customer','Customer_Type'], as_index=False).agg(
-            Sales=('Net_Sale','sum'), Discount=('Net_Discount','sum'), Orders=('Net_Sale','count')
+            Sales=('Net_Sale','sum'), Discount=('Net_Discount','sum')
         ).sort_values('Sales', ascending=False).head(20)
-        cust['Dis %'] = (cust['Discount'] / cust['Sales'] * 100).round(2)
+        cust['Dis %']    = (cust['Discount'] / cust['Sales'] * 100).round(2)
         cust['Sales']    = cust['Sales'].apply(lambda x: f"₹{x:,.0f}")
         cust['Discount'] = cust['Discount'].apply(lambda x: f"₹{x:,.0f}")
         st.dataframe(cust, use_container_width=True, hide_index=True)
